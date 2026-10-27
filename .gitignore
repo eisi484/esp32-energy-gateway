@@ -1,0 +1,22 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_tidy
+
+# ESP-IDF
+build/
+sdkconfig
+sdkconfig.old
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary & local environment
+*.local
+.env

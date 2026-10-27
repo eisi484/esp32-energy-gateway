@@ -1,0 +1,10 @@
+idf_component_register(SRCS "main.c"
+                            "nvs_config.c"
+                            "data_store.c"
+                            "eth_init.c"
+                            "shelly_client.c"
+                            "shelly_udp_server.c"
+                            "http_server.c"
+                            "modbus_proxy.c"
+                       INCLUDE_DIRS "."
+                       REQUIRES esp_eth esp_netif esp_event esp_http_client esp_http_server nvs_flash driver json app_update esp_timer)
