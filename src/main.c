@@ -13,6 +13,7 @@
 #include "shelly_udp_server.h"
 #include "http_server.h"
 #include "modbus_proxy.h"
+#include "mqtt_broker.h"
 
 static const char *TAG = "main";
 
@@ -62,7 +63,10 @@ void app_main(void) {
     /* 7. Start Modbus TCP caching proxy (for EVCC + ioBroker) */
     modbus_proxy_start();
 
-    /* 8. Start OTA confirmation timer (30s delay) */
+    /* 8. Start embedded MQTT v3.1.1 Broker (for Shelly 3 EM push) */
+    mqtt_broker_start();
+
+    /* 9. Start OTA confirmation timer (30s delay) */
     TimerHandle_t ota_timer = xTimerCreate("ota_confirm", pdMS_TO_TICKS(30000),
                                            pdFALSE, NULL, ota_confirm_timer_cb);
     if (ota_timer) {
@@ -75,4 +79,5 @@ void app_main(void) {
     ESP_LOGI(TAG, "  Shelly API:   http://%s/rpc/EM.GetStatus", g_data.eth_ip);
     ESP_LOGI(TAG, "  Modbus proxy: %s:%u", g_data.eth_ip, g_cfg.modbus_proxy_port);
     ESP_LOGI(TAG, "  Shelly UDP:   %s:%u (Marstek Venus E)", g_data.eth_ip, g_cfg.shelly_udp_port);
+    ESP_LOGI(TAG, "  MQTT Broker:  %s:%u", g_data.eth_ip, g_cfg.mqtt_broker_port);
 }

@@ -26,6 +26,11 @@ void config_defaults(gateway_config_t *cfg) {
     cfg->phase_map[2]       = 2;
     cfg->meter_fallback_enabled = 1;
     cfg->shelly_udp_port    = 2220;
+    cfg->mqtt_broker_enabled = 1;
+    cfg->mqtt_broker_port   = 1883;
+    cfg->mqtt_user[0]       = '\0';
+    cfg->mqtt_pass[0]       = '\0';
+    cfg->shelly_source_mode = 1;
     cfg->admin_password[0]  = '\0';
     cfg->use_static_ip      = 0;
     strlcpy(cfg->static_ip,  "192.168.1.50",  sizeof(cfg->static_ip));
@@ -84,6 +89,11 @@ esp_err_t config_init(void) {
     NVS_GET_U8 ("s_pc",    phase_map[2]);
     NVS_GET_U8 ("m_fb",    meter_fallback_enabled);
     NVS_GET_U16("udp_port",shelly_udp_port);
+    NVS_GET_U8 ("mq_en",   mqtt_broker_enabled);
+    NVS_GET_U16("mq_port", mqtt_broker_port);
+    NVS_GET_STR("mq_usr",  mqtt_user);
+    NVS_GET_STR("mq_pwd",  mqtt_pass);
+    NVS_GET_U8 ("sh_mode", shelly_source_mode);
     NVS_GET_STR("adm_pw",  admin_password);
     NVS_GET_STR("pw_salt", admin_pw_salt);
     NVS_GET_STR("pw_hash", admin_pw_hash);
@@ -125,6 +135,11 @@ esp_err_t config_save(const gateway_config_t *cfg) {
     nvs_set_u8 (h, "s_pc",    cfg->phase_map[2]);
     nvs_set_u8 (h, "m_fb",    cfg->meter_fallback_enabled);
     nvs_set_u16(h, "udp_port",cfg->shelly_udp_port);
+    nvs_set_u8 (h, "mq_en",   cfg->mqtt_broker_enabled);
+    nvs_set_u16(h, "mq_port", cfg->mqtt_broker_port);
+    nvs_set_str(h, "mq_usr",  cfg->mqtt_user);
+    nvs_set_str(h, "mq_pwd",  cfg->mqtt_pass);
+    nvs_set_u8 (h, "sh_mode", cfg->shelly_source_mode);
     nvs_set_str(h, "adm_pw",  cfg->admin_password);
     nvs_set_str(h, "pw_salt", cfg->admin_pw_salt);
     nvs_set_str(h, "pw_hash", cfg->admin_pw_hash);

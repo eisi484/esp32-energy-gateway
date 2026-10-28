@@ -288,6 +288,16 @@ static const char HTML_FORM_TMPL[] =
 "<option value=\"0\" %s>0: Deaktiviert</option>"
 "</select>"
 
+"<h2>&#128225; Integrierter MQTT-Broker (Port 1883)</h2>"
+"<div class=\"row\">"
+"<div><label>MQTT-Broker Status</label><select name=\"mq_en\"><option value=\"1\" %s>1: Aktiviert (Port 1883)</option><option value=\"0\" %s>0: Deaktiviert</option></select></div>"
+"<div><label>Zähler-Betriebsmodus</label><select name=\"sh_mode\"><option value=\"1\" %s>1: Hybrid (MQTT Push primär, HTTP-Fallback)</option><option value=\"0\" %s>0: Nur HTTP-Polling</option></select></div>"
+"</div>"
+"<div class=\"row\">"
+"<div><label>MQTT Benutzername (optional)</label><input type=\"text\" name=\"mq_usr\" value=\"%s\" placeholder=\"leer = anonym erlaubt\"></div>"
+"<div><label>MQTT Passwort (optional)</label><input type=\"password\" name=\"mq_pwd\" value=\"%s\" placeholder=\"Passwort\"></div>"
+"</div>"
+
 "<h2>&#128272; Administrator-Passwort</h2>"
 "<label>Neues Passwort (leer lassen für keine Änderung)</label>"
 "<input type=\"password\" name=\"adm_pw\" placeholder=\"Neues Passwort eingeben\">"
@@ -321,12 +331,14 @@ static const char HTML_STATIC_FOOT[] =
 "function upd(){"
 "fetch('/api/status').then(r=>r.json()).then(d=>{"
 "let srcTag='<span class=err>Kein Zähler</span>';"
-"if(d.src==='shelly')srcTag='<span class=ok>&#10003; Shelly 3 EM (WLAN)</span>';"
+"if(d.src==='mqtt')srcTag='<span class=ok style=\"color:#0dcaf0\">&#9889; Shelly 3 EM (MQTT Push, &lt; 10ms)</span>';"
+"else if(d.src==='shelly')srcTag='<span class=ok>&#10003; Shelly 3 EM (HTTP Poll)</span>';"
 "else if(d.src==='huawei')srcTag='<span class=ok style=\"color:#e0a800\">&#9888; Huawei DTSU666-H (Fallback aktiv)</span>';"
 "document.getElementById('st').innerHTML="
 "'<b>Ethernet IP:</b> '+(d.eth?'<span class=ok>'+d.ip+'</span>':'<span class=err>Getrennt</span>')+'<br>'"
 "+'<b>Hostname:</b> esp32-energy-gateway (DHCP)<br>'"
 "+'<b>Zähler-Quelle:</b> '+srcTag+'<br>'"
+"+'<b>MQTT Broker (:1883):</b> '+(d.mq_clients>0?'<span class=ok>'+d.mq_clients+' Client(s) verbunden</span>':'<span style=\"color:#6c757d\">Warte auf Verbindung (0 Clients)</span>')+(d.mq_cli?' | Letzter: '+d.mq_cli+' ('+Math.round(d.mq_age/1000)+'s, '+d.mq_msgs+' msgs)': '')+'<br>'"
 "+'<b>Shelly 3 EM:</b> '+(d.sh_ok?'<span class=ok>&#10003; Erreichbar ('+d.sh_age+' ms)</span>':'<span class=err>&#10007; Nicht erreichbar ('+(d.sh_err||'Fehler')+')</span>')+'<br>'"
 "+'<b>SDongle Upstream:</b> '+(d.mb_up?'<span class=ok>&#10003; Verbunden</span>':'<span class=err>&#10007; Getrennt '+(d.mb_err?'('+d.mb_err+')':'')+'</span>')+'<br>'"
 "+'<b>Modbus Clients:</b> '+d.mb_clients+' | <b>Cache Hits:</b> '+d.mb_hits+' | <b>Misses:</b> '+d.mb_misses+'<br>'"
@@ -455,7 +467,7 @@ static esp_err_t handler_config_get(httpd_req_t *req)
     httpd_resp_sendstr_chunk(req, tab_nav);
 
     /* 4. Tab 1: Config Form */
-    char *form_buf = malloc(4096);
+    char *form_buf = malloc(5120);
     if (!form_buf) {
         httpd_resp_sendstr_chunk(req, NULL);
         return ESP_FAIL;
@@ -463,16 +475,19 @@ static esp_err_t handler_config_get(httpd_req_t *req)
 
     /* Escape all string variables to prevent HTML/attribute injection */
     char esc_h_ip[64], esc_s_ip[64], esc_s_usr[64], esc_s_pwd[64], esc_sip[64], esc_sgw[64], esc_snm[64];
+    char esc_mq_usr[64], esc_mq_pwd[64];
     html_escape(g_cfg.huawei_ip, esc_h_ip, sizeof(esc_h_ip));
     html_escape(g_cfg.shelly_ip, esc_s_ip, sizeof(esc_s_ip));
     html_escape(g_cfg.shelly_user, esc_s_usr, sizeof(esc_s_usr));
     html_escape(g_cfg.shelly_pass, esc_s_pwd, sizeof(esc_s_pwd));
+    html_escape(g_cfg.mqtt_user, esc_mq_usr, sizeof(esc_mq_usr));
+    html_escape(g_cfg.mqtt_pass, esc_mq_pwd, sizeof(esc_mq_pwd));
     html_escape(g_cfg.static_ip, esc_sip, sizeof(esc_sip));
     html_escape(g_cfg.static_gw, esc_sgw, sizeof(esc_sgw));
     html_escape(g_cfg.static_nm, esc_snm, sizeof(esc_snm));
 
 #define S(val, idx) ((val) == (idx) ? "selected" : "")
-    int form_len = snprintf(form_buf, 4096, HTML_FORM_TMPL,
+    int form_len = snprintf(form_buf, 5120, HTML_FORM_TMPL,
         is_first_setup ? "active" : "",
         esc_h_ip,
         g_cfg.huawei_port,
@@ -491,6 +506,10 @@ static esp_err_t handler_config_get(httpd_req_t *req)
         S(g_cfg.phase_map[1], 0), S(g_cfg.phase_map[1], 1), S(g_cfg.phase_map[1], 2),
         S(g_cfg.phase_map[2], 0), S(g_cfg.phase_map[2], 1), S(g_cfg.phase_map[2], 2),
         S(g_cfg.meter_fallback_enabled, 1), S(g_cfg.meter_fallback_enabled, 0),
+        S(g_cfg.mqtt_broker_enabled, 1), S(g_cfg.mqtt_broker_enabled, 0),
+        S(g_cfg.shelly_source_mode, 1), S(g_cfg.shelly_source_mode, 0),
+        esc_mq_usr,
+        esc_mq_pwd,
         g_cfg.use_static_ip == 0 ? "checked" : "",
         g_cfg.use_static_ip == 1 ? "checked" : "",
         g_cfg.use_static_ip == 1 ? "block" : "none",
@@ -500,7 +519,7 @@ static esp_err_t handler_config_get(httpd_req_t *req)
     );
 #undef S
 
-    if (form_len < 0 || (size_t)form_len >= 4096) {
+    if (form_len < 0 || (size_t)form_len >= 5120) {
         ESP_LOGE(TAG, "form_buf buffer overflow or error: %d", form_len);
         free(form_buf);
         httpd_resp_send_500(req);
@@ -575,6 +594,11 @@ static esp_err_t handler_config_post(httpd_req_t *req)
     GET_INT(json, "pb", new_cfg.phase_map[1], 0, 2);
     GET_INT(json, "pc", new_cfg.phase_map[2], 0, 2);
     GET_INT(json, "m_fb", new_cfg.meter_fallback_enabled, 0, 1);
+
+    GET_INT(json, "mq_en", new_cfg.mqtt_broker_enabled, 0, 1);
+    GET_INT(json, "sh_mode", new_cfg.shelly_source_mode, 0, 1);
+    GET_STR(json, "mq_usr", new_cfg.mqtt_user);
+    GET_STR(json, "mq_pwd", new_cfg.mqtt_pass);
 
     /* Password update: compute salted SHA-256 hash */
     cJSON *pw_item = cJSON_GetObjectItemCaseSensitive(json, "adm_pw");
@@ -750,21 +774,30 @@ static esp_err_t handler_api_status_get(httpd_req_t *req)
     char sh_err[64];
     strncpy(sh_err, g_data.sh_err, sizeof(sh_err) - 1);
     sh_err[sizeof(sh_err) - 1] = '\0';
+
+    uint8_t mq_clients = g_data.mqtt_clients_count;
+    uint32_t mq_msgs = g_data.mqtt_rx_msgs;
+    char mq_cli[32];
+    strncpy(mq_cli, g_data.mqtt_last_client, sizeof(mq_cli) - 1);
+    mq_cli[sizeof(mq_cli) - 1] = '\0';
+    int64_t mq_age = (g_data.mqtt_last_rx_ms > 0 && now_ms >= g_data.mqtt_last_rx_ms) ? (now_ms - g_data.mqtt_last_rx_ms) : -1;
     DATA_UNLOCK();
 
     const char *src_str = "none";
     if (sh_ok) {
-        if (snap.active_meter_source == METER_SRC_HUAWEI) src_str = "huawei";
+        if (snap.active_meter_source == METER_SRC_MQTT) src_str = "mqtt";
+        else if (snap.active_meter_source == METER_SRC_HUAWEI) src_str = "huawei";
         else src_str = "shelly";
     }
 
-    char buf[1024];
+    char buf[1280];
     int len = snprintf(buf, sizeof(buf),
         "{\"eth\":%s,\"ip\":\"%s\","
         "\"src\":\"%s\",\"sh_ok\":%s,\"sh_err\":\"%s\",\"sh_age\":%lld,"
         "\"mb_up\":%s,\"mb_err\":\"%s\",\"mb_clients\":%u,\"mb_hits\":%lu,\"mb_misses\":%lu,"
         "\"udp_rx\":%lu,\"udp_tx\":%lu,\"udp_ct\":%lu,\"udp_rpc\":%lu,"
         "\"udp_cli\":\"%s\",\"udp_proto\":\"%s\",\"udp_age\":%lld,"
+        "\"mq_clients\":%u,\"mq_msgs\":%lu,\"mq_cli\":\"%s\",\"mq_age\":%lld,"
         "\"heap\":%lu,\"uptime\":%lu}",
         eth_connected ? "true" : "false", eth_ip,
         src_str,
@@ -773,6 +806,7 @@ static esp_err_t handler_api_status_get(httpd_req_t *req)
         (unsigned long)mb_hits, (unsigned long)mb_misses,
         (unsigned long)udp_rx, (unsigned long)udp_tx, (unsigned long)udp_ct, (unsigned long)udp_rpc,
         udp_cli, udp_proto, (long long)udp_age,
+        mq_clients, (unsigned long)mq_msgs, mq_cli, (long long)mq_age,
         (unsigned long)esp_get_free_heap_size(),
         (unsigned long)(now_ms / 1000LL)
     );

@@ -189,6 +189,26 @@ static void shelly_client_task(void *pvParameters)
     static http_resp_t resp; /* static: keeps buffer off the task stack */
 
     for (;;) {
+        /* If Hybrid mode is active and fresh MQTT messages were received within 2500ms,
+         * skip HTTP polling to relieve the Shelly 3 EM CPU and Wi-Fi */
+        if (g_cfg.shelly_source_mode == 1) {
+            int64_t now_check_ms = esp_timer_get_time() / 1000LL;
+            bool mqtt_fresh = false;
+            if (DATA_LOCK()) {
+                if (g_data.active_meter_source == METER_SRC_MQTT &&
+                    g_data.shelly_valid &&
+                    g_data.mqtt_last_rx_ms > 0 &&
+                    (now_check_ms - g_data.mqtt_last_rx_ms) < 2500LL) {
+                    mqtt_fresh = true;
+                }
+                DATA_UNLOCK();
+            }
+            if (mqtt_fresh) {
+                vTaskDelay(pdMS_TO_TICKS(500));
+                continue;
+            }
+        }
+
         resp.len      = 0;
         resp.overflow = false;
         memset(resp.buf, 0, sizeof(resp.buf));

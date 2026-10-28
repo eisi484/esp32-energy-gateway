@@ -29,6 +29,13 @@ typedef struct {
     /* Shelly 3 Pro EM emulator output */
     uint16_t shelly_udp_port;     /**< UDP port for Marstek Venus E (default: 2220) */
 
+    /* Embedded MQTT Broker (Port 1883) */
+    uint8_t  mqtt_broker_enabled; /**< 1 = run embedded MQTT broker on port 1883, 0 = disabled */
+    uint16_t mqtt_broker_port;    /**< MQTT port (default: 1883) */
+    char     mqtt_user[32];       /**< Optional MQTT user (empty = allow anonymous) */
+    char     mqtt_pass[32];       /**< Optional MQTT password */
+    uint8_t  shelly_source_mode;  /**< 0 = HTTP polling only, 1 = Hybrid (MQTT primary, HTTP fallback) */
+
     /* Security */
     char     admin_password[32];  /**< Legacy admin password (empty if salted hash is used) */
     char     admin_pw_salt[17];   /**< 16-hex character salt (8 bytes) */

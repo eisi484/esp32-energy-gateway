@@ -6,5 +6,6 @@ idf_component_register(SRCS "main.c"
                             "shelly_udp_server.c"
                             "http_server.c"
                             "modbus_proxy.c"
+                            "mqtt_broker.c"
                        INCLUDE_DIRS "."
                        REQUIRES esp_eth esp_netif esp_event esp_http_client esp_http_server nvs_flash driver json app_update esp_timer)

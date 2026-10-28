@@ -8,6 +8,7 @@ typedef enum {
     METER_SRC_NONE   = 0,
     METER_SRC_SHELLY = 1,
     METER_SRC_HUAWEI = 2,
+    METER_SRC_MQTT   = 3,
 } meter_source_t;
 
 /**
@@ -64,6 +65,12 @@ typedef struct {
     char     udp_last_client[32];
     char     udp_last_proto[16];
     int64_t  udp_last_rx_ms;
+
+    /* ── MQTT Broker Metrics ─────────────────────────────────────────── */
+    uint8_t  mqtt_clients_count;
+    uint32_t mqtt_rx_msgs;
+    char     mqtt_last_client[32];
+    int64_t  mqtt_last_rx_ms;
 
     /* ── System status (for web UI) ──────────────────────────────────── */
     bool    eth_connected;
